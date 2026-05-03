@@ -9,9 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as FicusRouteImport } from './routes/ficus'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FicusRevenueRouteImport } from './routes/ficus/revenue'
+import { Route as FicusProductsRouteImport } from './routes/ficus/products'
+import { Route as FicusOrdersRouteImport } from './routes/ficus/orders'
+import { Route as FicusOrderPrintRouteImport } from './routes/ficus/order-print'
+import { Route as FicusDashboardRouteImport } from './routes/ficus/dashboard'
+import { Route as FicusCustomersRouteImport } from './routes/ficus/customers'
+import { Route as FicusCounselorsRouteImport } from './routes/ficus/counselors'
+import { Route as FicusAppointmentsRouteImport } from './routes/ficus/appointments'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FicusRoute = FicusRouteImport.update({
+  id: '/ficus',
+  path: '/ficus',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -22,35 +42,158 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FicusRevenueRoute = FicusRevenueRouteImport.update({
+  id: '/revenue',
+  path: '/revenue',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusProductsRoute = FicusProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusOrdersRoute = FicusOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusOrderPrintRoute = FicusOrderPrintRouteImport.update({
+  id: '/order-print',
+  path: '/order-print',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusDashboardRoute = FicusDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusCustomersRoute = FicusCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusCounselorsRoute = FicusCounselorsRouteImport.update({
+  id: '/counselors',
+  path: '/counselors',
+  getParentRoute: () => FicusRoute,
+} as any)
+const FicusAppointmentsRoute = FicusAppointmentsRouteImport.update({
+  id: '/appointments',
+  path: '/appointments',
+  getParentRoute: () => FicusRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/ficus': typeof FicusRouteWithChildren
+  '/login': typeof LoginRoute
+  '/ficus/appointments': typeof FicusAppointmentsRoute
+  '/ficus/counselors': typeof FicusCounselorsRoute
+  '/ficus/customers': typeof FicusCustomersRoute
+  '/ficus/dashboard': typeof FicusDashboardRoute
+  '/ficus/order-print': typeof FicusOrderPrintRoute
+  '/ficus/orders': typeof FicusOrdersRoute
+  '/ficus/products': typeof FicusProductsRoute
+  '/ficus/revenue': typeof FicusRevenueRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/ficus': typeof FicusRouteWithChildren
+  '/login': typeof LoginRoute
+  '/ficus/appointments': typeof FicusAppointmentsRoute
+  '/ficus/counselors': typeof FicusCounselorsRoute
+  '/ficus/customers': typeof FicusCustomersRoute
+  '/ficus/dashboard': typeof FicusDashboardRoute
+  '/ficus/order-print': typeof FicusOrderPrintRoute
+  '/ficus/orders': typeof FicusOrdersRoute
+  '/ficus/products': typeof FicusProductsRoute
+  '/ficus/revenue': typeof FicusRevenueRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/ficus': typeof FicusRouteWithChildren
+  '/login': typeof LoginRoute
+  '/ficus/appointments': typeof FicusAppointmentsRoute
+  '/ficus/counselors': typeof FicusCounselorsRoute
+  '/ficus/customers': typeof FicusCustomersRoute
+  '/ficus/dashboard': typeof FicusDashboardRoute
+  '/ficus/order-print': typeof FicusOrderPrintRoute
+  '/ficus/orders': typeof FicusOrdersRoute
+  '/ficus/products': typeof FicusProductsRoute
+  '/ficus/revenue': typeof FicusRevenueRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/ficus'
+    | '/login'
+    | '/ficus/appointments'
+    | '/ficus/counselors'
+    | '/ficus/customers'
+    | '/ficus/dashboard'
+    | '/ficus/order-print'
+    | '/ficus/orders'
+    | '/ficus/products'
+    | '/ficus/revenue'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to:
+    | '/'
+    | '/about'
+    | '/ficus'
+    | '/login'
+    | '/ficus/appointments'
+    | '/ficus/counselors'
+    | '/ficus/customers'
+    | '/ficus/dashboard'
+    | '/ficus/order-print'
+    | '/ficus/orders'
+    | '/ficus/products'
+    | '/ficus/revenue'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/ficus'
+    | '/login'
+    | '/ficus/appointments'
+    | '/ficus/counselors'
+    | '/ficus/customers'
+    | '/ficus/dashboard'
+    | '/ficus/order-print'
+    | '/ficus/orders'
+    | '/ficus/products'
+    | '/ficus/revenue'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  FicusRoute: typeof FicusRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ficus': {
+      id: '/ficus'
+      path: '/ficus'
+      fullPath: '/ficus'
+      preLoaderRoute: typeof FicusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -65,12 +208,94 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ficus/revenue': {
+      id: '/ficus/revenue'
+      path: '/revenue'
+      fullPath: '/ficus/revenue'
+      preLoaderRoute: typeof FicusRevenueRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/products': {
+      id: '/ficus/products'
+      path: '/products'
+      fullPath: '/ficus/products'
+      preLoaderRoute: typeof FicusProductsRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/orders': {
+      id: '/ficus/orders'
+      path: '/orders'
+      fullPath: '/ficus/orders'
+      preLoaderRoute: typeof FicusOrdersRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/order-print': {
+      id: '/ficus/order-print'
+      path: '/order-print'
+      fullPath: '/ficus/order-print'
+      preLoaderRoute: typeof FicusOrderPrintRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/dashboard': {
+      id: '/ficus/dashboard'
+      path: '/dashboard'
+      fullPath: '/ficus/dashboard'
+      preLoaderRoute: typeof FicusDashboardRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/customers': {
+      id: '/ficus/customers'
+      path: '/customers'
+      fullPath: '/ficus/customers'
+      preLoaderRoute: typeof FicusCustomersRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/counselors': {
+      id: '/ficus/counselors'
+      path: '/counselors'
+      fullPath: '/ficus/counselors'
+      preLoaderRoute: typeof FicusCounselorsRouteImport
+      parentRoute: typeof FicusRoute
+    }
+    '/ficus/appointments': {
+      id: '/ficus/appointments'
+      path: '/appointments'
+      fullPath: '/ficus/appointments'
+      preLoaderRoute: typeof FicusAppointmentsRouteImport
+      parentRoute: typeof FicusRoute
+    }
   }
 }
+
+interface FicusRouteChildren {
+  FicusAppointmentsRoute: typeof FicusAppointmentsRoute
+  FicusCounselorsRoute: typeof FicusCounselorsRoute
+  FicusCustomersRoute: typeof FicusCustomersRoute
+  FicusDashboardRoute: typeof FicusDashboardRoute
+  FicusOrderPrintRoute: typeof FicusOrderPrintRoute
+  FicusOrdersRoute: typeof FicusOrdersRoute
+  FicusProductsRoute: typeof FicusProductsRoute
+  FicusRevenueRoute: typeof FicusRevenueRoute
+}
+
+const FicusRouteChildren: FicusRouteChildren = {
+  FicusAppointmentsRoute: FicusAppointmentsRoute,
+  FicusCounselorsRoute: FicusCounselorsRoute,
+  FicusCustomersRoute: FicusCustomersRoute,
+  FicusDashboardRoute: FicusDashboardRoute,
+  FicusOrderPrintRoute: FicusOrderPrintRoute,
+  FicusOrdersRoute: FicusOrdersRoute,
+  FicusProductsRoute: FicusProductsRoute,
+  FicusRevenueRoute: FicusRevenueRoute,
+}
+
+const FicusRouteWithChildren = FicusRoute._addFileChildren(FicusRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  FicusRoute: FicusRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -9,7 +9,9 @@
     "dev": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate:users": "bunx tsx scripts/migrate-users.ts",
+    "migrate:data": "bunx tsx scripts/migrate-mysql-to-supabase.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
@@ -23,6 +25,9 @@
     "@tanstack/router-plugin": "^1.132.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.8.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.0",
@@ -42,6 +47,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",
     "jsdom": "^28.1.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2",
     "vite": "^8.0.0",
     "vitest": "^3.0.5"
