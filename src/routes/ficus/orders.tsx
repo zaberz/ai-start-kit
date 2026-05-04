@@ -42,6 +42,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabase";
+import { Pagination } from "@/components/ui/pagination";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 interface Order {
   id: string;
@@ -49,6 +51,11 @@ interface Order {
   total_price: number;
   customer_id: number | null;
   customer_name: string | null;
+  customer: {
+    id: number;
+    name: string | null;
+    phone: string | null;
+  } | null;
   user_id: string | null;
   counselor_name: string | null;
   pay_type: string | null;
@@ -157,8 +164,11 @@ const PaymentMethodLabels: Record<string, string> = {
 
 function FicusOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 1000);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 20;
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -205,28 +215,33 @@ function FicusOrdersPage() {
   }, []);
 
   useEffect(() => {
-    let result = [...orders];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (o) =>
-          o.customer_name?.toLowerCase().includes(q) ||
-          o.counselor_name?.toLowerCase().includes(q) ||
-          o.id.toLowerCase().includes(q)
-      );
-    }
-    setFilteredOrders(result);
-  }, [searchQuery, orders]);
+    setPage(1);
+    fetchOrders();
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [page]);
 
   async function fetchOrders() {
     try {
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      let query = supabase
         .from("order")
-        .select("*")
-        .order("date_created", { ascending: false });
+        .select("*, customer(id, name, phone)", { count: "exact" })
+        .order("date_created", { ascending: false })
+        .range(from, to);
+
+      if (debouncedSearch.trim()) {
+        const q = `%${debouncedSearch.trim()}%`;
+        query = query.or(`customer_name.ilike.${q},counselor_name.ilike.${q},remark.ilike.${q}`);
+      }
+
+      const { data, error, count } = await query;
       if (error) throw error;
       setOrders(data || []);
-      setFilteredOrders(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error("Fetch orders error:", error);
     } finally {
@@ -239,7 +254,8 @@ function FicusOrdersPage() {
       const { data, error } = await supabase
         .from("customer")
         .select("id, name, phone")
-        .order("name");
+        .order("date_created", { ascending: false })
+        .limit(500);
       if (error) throw error;
       setCustomers(data || []);
     } catch (error) {
@@ -253,7 +269,8 @@ function FicusOrdersPage() {
         .from("profiles")
         .select("id, name")
         .eq("status", "active")
-        .order("name");
+        .order("created_at", { ascending: false })
+        .limit(100);
       if (error) throw error;
       setCounselors(data || []);
     } catch (error) {
@@ -264,11 +281,11 @@ function FicusOrdersPage() {
   async function fetchRefData() {
     try {
       const [skuRes, clsRes, colorRes, shazhiRes, priceRes] = await Promise.all([
-        supabase.from("sku").select("id, name, code"),
-        supabase.from("classify").select("id, name"),
-        supabase.from("tag_color").select("id, name"),
-        supabase.from("tag_shazhi").select("id, name"),
-        supabase.from("sku_classify_price").select("id, sku_id, classify_id, price"),
+        supabase.from("sku").select("id, name, code").order("date_created", { ascending: false }).limit(500),
+        supabase.from("classify").select("id, name").order("date_created", { ascending: false }).limit(500),
+        supabase.from("tag_color").select("id, name").order("date_created", { ascending: false }).limit(500),
+        supabase.from("tag_shazhi").select("id, name").order("date_created", { ascending: false }).limit(500),
+        supabase.from("sku_classify_price").select("id, sku_id, classify_id, price").order("date_created", { ascending: false }).limit(1000),
       ]);
       setSkusWithCode(skuRes.data || []);
       setSkus((skuRes.data || []).map((s: SkuWithCode) => ({ id: s.id, name: s.name })));
@@ -299,6 +316,10 @@ function FicusOrdersPage() {
   function getShazhiName(id: number | null): string {
     if (!id) return "-";
     return shazhis.find((s) => s.id === id)?.name || String(id);
+  }
+
+  function getCustomerName(order: Order): string {
+    return order.customer?.name || order.customer_name || "-";
   }
 
   function openCreateOrderModal() {
@@ -453,7 +474,7 @@ function FicusOrdersPage() {
     setShowDetailModal(true);
 
     const [detailsRes, paymentsRes, progressRes] = await Promise.all([
-      supabase.from("order_sku_detail").select("*").eq("order_id", order.id),
+      supabase.from("order_sku_detail").select("*").eq("order_id", order.id).order("date_created", { ascending: false }),
       supabase.from("order_payment").select("*").eq("order_id", order.id).order("date_created", { ascending: false }),
       supabase.from("order_progress").select("*").eq("order_id", order.id).order("date_created", { ascending: false }),
     ]);
@@ -582,35 +603,20 @@ function FicusOrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">订单管理</h1>
-          <p className="text-muted-foreground">管理西装定制订单、收款和进度</p>
+          <p className="text-muted-foreground hidden sm:block">管理西装定制订单、收款和进度</p>
         </div>
         <Button onClick={openCreateOrderModal}>
           <Plus className="size-4 mr-2" />
-          新建订单
+          <span className="hidden sm:inline">新建订单</span>
+          <span className="sm:hidden">新建</span>
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
         <Card className="py-0 gap-0">
           <CardContent className="p-4">
-            <div className="text-2xl font-bold">{orders.length}</div>
+            <div className="text-2xl font-bold">{totalCount}</div>
             <p className="text-sm text-muted-foreground">总订单数</p>
-          </CardContent>
-        </Card>
-        <Card className="py-0 gap-0">
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600">
-              ¥{orders.reduce((s, o) => s + (o.real_price || 0), 0).toFixed(2)}
-            </div>
-            <p className="text-sm text-muted-foreground">实付总金额</p>
-          </CardContent>
-        </Card>
-        <Card className="py-0 gap-0">
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">
-              ¥{orders.reduce((s, o) => s + (o.total_price || 0), 0).toFixed(2)}
-            </div>
-            <p className="text-sm text-muted-foreground">原始总金额</p>
           </CardContent>
         </Card>
         <Card className="py-0 gap-0">
@@ -622,7 +628,7 @@ function FicusOrdersPage() {
                 return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
               }).length}
             </div>
-            <p className="text-sm text-muted-foreground">今日新增</p>
+            <p className="text-sm text-muted-foreground">本页今日新增</p>
           </CardContent>
         </Card>
       </div>
@@ -632,7 +638,7 @@ function FicusOrdersPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>订单列表</CardTitle>
-              <CardDescription>共 {filteredOrders.length} 条订单</CardDescription>
+              <CardDescription>共 {totalCount} 条订单</CardDescription>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -640,13 +646,13 @@ function FicusOrdersPage() {
                 placeholder="搜索顾客、顾问..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 pl-10"
+                className="w-full sm:w-64 pl-10"
               />
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
@@ -661,12 +667,12 @@ function FicusOrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => (
+                {orders.map((order) => (
                   <tr key={order.id} className="border-b hover:bg-muted/50">
                     <td className="py-4 px-4 font-mono text-sm">
                       {order.id.slice(0, 8)}...
                     </td>
-                    <td className="py-4 px-4 font-medium">{order.customer_name || "-"}</td>
+                    <td className="py-4 px-4 font-medium">{getCustomerName(order)}</td>
                     <td className="py-4 px-4">{order.counselor_name || "-"}</td>
                     <td className="py-4 px-4">¥{order.total_price?.toFixed(2)}</td>
                     <td className="py-4 px-4 font-bold">¥{order.real_price?.toFixed(2)}</td>
@@ -698,6 +704,35 @@ function FicusOrdersPage() {
               </tbody>
             </table>
           </div>
+          <div className="md:hidden space-y-3">
+            {orders.map((order) => (
+              <div key={order.id} className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-base">{getCustomerName(order)}</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => viewOrderDetail(order)}>
+                      <Eye className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openPaymentModal(order)}>
+                      <DollarSign className="size-4 text-green-600" />
+                    </Button>
+                    <Link to="/ficus/order-print" search={{ id: order.id }}>
+                      <Button variant="ghost" size="sm">
+                        <Printer className="size-4 text-blue-600" />
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    {order.counselor_name || "无顾问"} · {new Date(order.date_created).toLocaleDateString("zh-CN")}
+                  </span>
+                  <span className="font-bold">¥{order.real_price?.toFixed(2)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Pagination page={page} pageSize={pageSize} total={totalCount} onChange={setPage} />
         </CardContent>
       </Card>
 
@@ -712,7 +747,7 @@ function FicusOrdersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">顾客</p>
-                  <p className="font-medium">{selectedOrder.customer_name || "-"}</p>
+                  <p className="font-medium">{getCustomerName(selectedOrder)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">顾问</p>
@@ -899,7 +934,7 @@ function FicusOrdersPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>添加收款</DialogTitle>
-            <DialogDescription>订单: {selectedOrder?.customer_name} · ¥{selectedOrder?.real_price?.toFixed(2)}</DialogDescription>
+            <DialogDescription>订单: {selectedOrder ? getCustomerName(selectedOrder) : ''} · ¥{selectedOrder?.real_price?.toFixed(2)}</DialogDescription>
           </DialogHeader>
           <FieldGroup>
             <Field>

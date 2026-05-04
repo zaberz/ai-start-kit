@@ -214,9 +214,7 @@ function FicusLayout() {
 export const Route = createFileRoute("/ficus")({
   component: FicusLayout,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getSession();
-    console.log(data);
-    
+    const { data, error } = await supabase.auth.getSession();    
     if (error || !data.session) {
       throw redirect({ to: "/login" });
     }

@@ -108,10 +108,10 @@ function OrderPrintPage() {
         await Promise.all([
           supabase.from("customer").select("*").eq("id", orderInfo.customer_id).single(),
           supabase.from("profiles").select("id, name").eq("id", orderInfo.user_id).single(),
-          supabase.from("order_sku_detail").select("*").eq("order_id", orderInfo.id),
-          supabase.from("order_payment").select("*").eq("order_id", orderInfo.id),
-          supabase.from("sku").select("id, name, code"),
-          supabase.from("classify").select("id, name"),
+          supabase.from("order_sku_detail").select("*").eq("order_id", orderInfo.id).order("date_created", { ascending: false }),
+          supabase.from("order_payment").select("*").eq("order_id", orderInfo.id).order("date_created", { ascending: false }),
+          supabase.from("sku").select("id, name, code").order("date_created", { ascending: false }).limit(500),
+          supabase.from("classify").select("id, name").order("date_created", { ascending: false }).limit(500),
         ]);
 
       const customer: CustomerInfo | undefined = customerRes.data

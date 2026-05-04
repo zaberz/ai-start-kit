@@ -74,6 +74,7 @@ CREATE TABLE public.sku (
   user_updated uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   date_updated timestamptz DEFAULT now(),
   code text,
+  brand text,
   name text,
   cover uuid,
   remark text,

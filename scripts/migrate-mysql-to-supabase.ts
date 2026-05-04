@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import fs from "fs";
-import path from "path";
+import * as fs from "fs";
+import * as path from "path";
+import * as dotenv from "dotenv";
+
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || "";

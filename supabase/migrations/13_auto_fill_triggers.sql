@@ -6,8 +6,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  NEW.user_created = auth.uid();
-  NEW.date_created = now();
+  -- 只在未传入 user_created 时才从 auth.uid() 填入
+  IF NEW.user_created IS NULL THEN
+    NEW.user_created = auth.uid();
+  END IF;
+  -- 只在未传入 date_created 时才填入当前时间（保留迁移数据的原始时间）
+  IF NEW.date_created IS NULL THEN
+    NEW.date_created = now();
+  END IF;
   RETURN NEW;
 END;
 $$;
@@ -18,8 +24,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  NEW.user_updated = auth.uid();
-  NEW.date_updated = now();
+  -- 只在未传入 user_updated 时才从 auth.uid() 填入
+  IF NEW.user_updated IS NULL THEN
+    NEW.user_updated = auth.uid();
+  END IF;
+  -- 只在未传入 date_updated 时才填入当前时间（保留迁移数据的原始时间）
+  IF NEW.date_updated IS NULL THEN
+    NEW.date_updated = now();
+  END IF;
   RETURN NEW;
 END;
 $$;

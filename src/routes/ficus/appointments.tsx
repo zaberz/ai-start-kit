@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabase";
+import { Pagination } from "@/components/ui/pagination";
 
 interface Appointment {
   id: number;
@@ -82,7 +83,11 @@ function FicusAppointmentsPage() {
   const [counselors, setCounselors] = useState<Counselor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [dateFilter, setDateFilter] = useState<"all" | "today">("all");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 20;
 
   const [showModal, setShowModal] = useState(false);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
@@ -104,24 +109,69 @@ function FicusAppointmentsPage() {
   }>({ open: false, title: "", description: "", onConfirm: () => {} });
 
   useEffect(() => {
-    fetchAllData();
+    fetchRefData();
+    fetchAppointments();
   }, []);
 
-  async function fetchAllData() {
-    try {
-      const [apptRes, custRes, counselorRes] = await Promise.all([
-        supabase.from("appointment").select("*").order("start_time", { ascending: true }),
-        supabase.from("customer").select("id, name"),
-        supabase.from("profiles").select("id, name").eq("status", "active"),
-      ]);
+  useEffect(() => {
+    if (dateFilter === "today" && page !== 1) {
+      setPage(1);
+    } else {
+      fetchAppointments();
+    }
+  }, [page, viewMode, currentDate, dateFilter]);
 
-      setAppointments(apptRes.data || []);
+  async function fetchAppointments() {
+    try {
+      if (viewMode === "list") {
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        let query = supabase
+          .from("appointment")
+          .select("*", { count: "exact" })
+          .order("date_created", { ascending: false });
+        if (dateFilter === "today") {
+          const now = new Date();
+          const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+          const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+          query = query.gte("start_time", todayStart).lte("start_time", todayEnd);
+        }
+        const { data, error, count } = await query.range(from, to);
+        if (error) throw error;
+        setAppointments(data || []);
+        setTotalCount(count || 0);
+      } else {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const monthStart = new Date(year, month, 1).toISOString();
+        const monthEnd = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+        const { data, error } = await supabase
+          .from("appointment")
+          .select("*")
+          .gte("start_time", monthStart)
+          .lte("start_time", monthEnd)
+          .order("date_created", { ascending: false });
+        if (error) throw error;
+        setAppointments(data || []);
+        setTotalCount(data?.length || 0);
+      }
+    } catch (error) {
+      console.error("Fetch appointments error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function fetchRefData() {
+    try {
+      const [custRes, counselorRes] = await Promise.all([
+        supabase.from("customer").select("id, name").order("date_created", { ascending: false }).limit(500),
+        supabase.from("profiles").select("id, name").eq("status", "active").order("created_at", { ascending: false }).limit(100),
+      ]);
       setCustomers(custRes.data || []);
       setCounselors(counselorRes.data || []);
     } catch (error) {
-      console.error("Fetch data error:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Fetch ref data error:", error);
     }
   }
 
@@ -183,7 +233,7 @@ function FicusAppointmentsPage() {
         if (error) throw error;
       }
       setShowModal(false);
-      await fetchAllData();
+      await fetchAppointments();
     } catch (error) {
       console.error("Save appointment error:", error);
       setErrorDialog({ open: true, message: "保存失败：" + (error as Error).message });
@@ -203,7 +253,7 @@ function FicusAppointmentsPage() {
     try {
       const { error } = await supabase.from("appointment").delete().eq("id", appt.id);
       if (error) throw error;
-      await fetchAllData();
+      await fetchAppointments();
     } catch (error) {
       console.error("Delete appointment error:", error);
       setErrorDialog({ open: true, message: "删除失败：" + (error as Error).message });
@@ -270,10 +320,10 @@ function FicusAppointmentsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">预约管理</h1>
-          <p className="text-muted-foreground">管理顾客预约和日程安排</p>
+          <p className="text-muted-foreground hidden sm:block">管理顾客预约和日程安排</p>
         </div>
         <div className="flex gap-2">
-          <div className="flex border rounded-lg overflow-hidden">
+          <div className="hidden sm:flex border rounded-lg overflow-hidden">
             <Button
               variant={viewMode === "list" ? "default" : "ghost"}
               size="sm"
@@ -292,7 +342,8 @@ function FicusAppointmentsPage() {
           </div>
           <Button onClick={openCreateModal}>
             <Plus className="size-4 mr-2" />
-            新增预约
+            <span className="hidden sm:inline">新增预约</span>
+            <span className="sm:hidden">新增</span>
           </Button>
         </div>
       </div>
@@ -331,11 +382,49 @@ function FicusAppointmentsPage() {
       {viewMode === "list" ? (
         <Card>
           <CardHeader>
-            <CardTitle>预约列表</CardTitle>
-            <CardDescription>共 {appointments.length} 条预约</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>预约列表</CardTitle>
+                <CardDescription>共 {totalCount} 条预约</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex sm:hidden border rounded-lg overflow-hidden">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setViewMode("list")}
+                  >
+                    列表
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setViewMode("calendar")}
+                  >
+                    <CalendarIcon className="size-4" />
+                  </Button>
+                </div>
+                <div className="flex border rounded-lg overflow-hidden">
+                  <Button
+                    variant={dateFilter === "all" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setDateFilter("all")}
+                  >
+                    全部
+                  </Button>
+                  <Button
+                    variant={dateFilter === "today" ? "default" : "ghost"}
+                    size="sm"
+                    onClick={() => setDateFilter("today")}
+                  >
+                    今日
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
@@ -395,6 +484,47 @@ function FicusAppointmentsPage() {
                 </tbody>
               </table>
             </div>
+            <div className="md:hidden space-y-3">
+              {appointments.map((appt) => {
+                const style = getEventStyle(appt.event);
+                return (
+                  <div key={appt.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${style.color}`}>
+                        {style.label}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEditModal(appt)}>
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => requestDelete(appt)} className="text-red-600">
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{getCustomerName(appt.customer_id)}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(appt.start_time).toLocaleString("zh-CN", {
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {appt.counselor_id && (
+                      <div className="text-sm text-muted-foreground">
+                        顾问: {getCounselorName(appt.counselor_id)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {viewMode === "list" && (
+              <Pagination page={page} pageSize={pageSize} total={totalCount} onChange={setPage} />
+            )}
           </CardContent>
         </Card>
       ) : (

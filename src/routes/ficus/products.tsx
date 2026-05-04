@@ -41,11 +41,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabase";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 type TabType = "sku" | "classify" | "color" | "shazhi";
 
 interface SkuItem {
   id: number;
+  code: string | null;
+  brand: string | null;
   name: string;
   remark: string | null;
   archived: boolean;
@@ -81,11 +84,12 @@ function FicusProductsPage() {
   const [shazhis, setShazhis] = useState<TagItem[]>([]);
   const [prices, setPrices] = useState<SkuClassifyPrice[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 1000);
   const [isLoading, setIsLoading] = useState(true);
 
   const [showSkuModal, setShowSkuModal] = useState(false);
   const [editingSku, setEditingSku] = useState<SkuItem | null>(null);
-  const [skuForm, setSkuForm] = useState({ name: "", remark: "", sort: "" });
+  const [skuForm, setSkuForm] = useState({ code: "", brand: "", name: "", remark: "", sort: "" });
 
   const [showClassifyModal, setShowClassifyModal] = useState(false);
   const [editingClassify, setEditingClassify] = useState<ClassifyItem | null>(null);
@@ -114,11 +118,11 @@ function FicusProductsPage() {
   async function fetchAllData() {
     try {
       const [skuRes, classifyRes, colorRes, shazhiRes, priceRes] = await Promise.all([
-        supabase.from("sku").select("*").order("sort"),
-        supabase.from("classify").select("*").order("sort"),
-        supabase.from("tag_color").select("*").order("sort"),
-        supabase.from("tag_shazhi").select("*").order("sort"),
-        supabase.from("sku_classify_price").select("*"),
+        supabase.from("sku").select("*").order("date_created", { ascending: false }).limit(500),
+        supabase.from("classify").select("*").order("date_created", { ascending: false }).limit(500),
+        supabase.from("tag_color").select("*").order("date_created", { ascending: false }).limit(500),
+        supabase.from("tag_shazhi").select("*").order("date_created", { ascending: false }).limit(500),
+        supabase.from("sku_classify_price").select("*").order("date_created", { ascending: false }).limit(1000),
       ]);
 
       setSkus(skuRes.data || []);
@@ -144,13 +148,15 @@ function FicusProductsPage() {
 
   function openCreateSku() {
     setEditingSku(null);
-    setSkuForm({ name: "", remark: "", sort: "" });
+    setSkuForm({ code: "", brand: "", name: "", remark: "", sort: "" });
     setShowSkuModal(true);
   }
 
   function openEditSku(sku: SkuItem) {
     setEditingSku(sku);
     setSkuForm({
+      code: sku.code || "",
+      brand: sku.brand || "",
       name: sku.name,
       remark: sku.remark || "",
       sort: sku.sort ? String(sku.sort) : "",
@@ -162,6 +168,8 @@ function FicusProductsPage() {
     if (!skuForm.name.trim()) return;
     try {
       const payload = {
+        code: skuForm.code || null,
+        brand: skuForm.brand || null,
         name: skuForm.name,
         remark: skuForm.remark || null,
         sort: skuForm.sort ? parseInt(skuForm.sort) : null,
@@ -361,16 +369,17 @@ function FicusProductsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">产品管理</h1>
-          <p className="text-muted-foreground">管理产品、品类、颜色和纱织标签</p>
+          <p className="text-muted-foreground hidden sm:block">管理产品、品类、颜色和纱织标签</p>
         </div>
         <div className="flex gap-2">
           {activeTab === "sku" && (
             <>
               <Button onClick={openCreateSku}>
                 <Plus className="size-4 mr-2" />
-                新增产品
+                <span className="hidden sm:inline">新增产品</span>
+                <span className="sm:hidden">新增</span>
               </Button>
-              <Button variant="outline" onClick={openCreatePrice}>
+              <Button variant="outline" onClick={openCreatePrice} className="hidden sm:inline-flex">
                 <DollarSign className="size-4 mr-2" />
                 设置价格
               </Button>
@@ -379,31 +388,35 @@ function FicusProductsPage() {
           {activeTab === "classify" && (
             <Button onClick={openCreateClassify}>
               <Plus className="size-4 mr-2" />
-              新增品类
+              <span className="hidden sm:inline">新增品类</span>
+              <span className="sm:hidden">新增</span>
             </Button>
           )}
           {activeTab === "color" && (
             <Button onClick={() => openCreateTag("color")}>
               <Plus className="size-4 mr-2" />
-              新增颜色
+              <span className="hidden sm:inline">新增颜色</span>
+              <span className="sm:hidden">新增</span>
             </Button>
           )}
           {activeTab === "shazhi" && (
             <Button onClick={() => openCreateTag("shazhi")}>
               <Plus className="size-4 mr-2" />
-              新增纱织
+              <span className="hidden sm:inline">新增纱织</span>
+              <span className="sm:hidden">新增</span>
             </Button>
           )}
         </div>
       </div>
 
-      <div className="flex gap-2 border-b pb-2">
+      <div className="flex gap-2 border-b pb-2 overflow-x-auto">
         {tabs.map((tab) => (
           <Button
             key={tab.key}
             variant={activeTab === tab.key ? "default" : "ghost"}
             size="sm"
             onClick={() => setActiveTab(tab.key)}
+            className="shrink-0"
           >
             <tab.icon className="size-4 mr-1" />
             {tab.label} ({tab.count})
@@ -425,17 +438,19 @@ function FicusProductsPage() {
                   placeholder="搜索产品..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 pl-10"
+                  className="w-full sm:w-64 pl-10"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">名称</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">编码</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">品牌</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">价格</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">备注</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">状态</th>
@@ -444,10 +459,12 @@ function FicusProductsPage() {
                 </thead>
                 <tbody>
                   {skus
-                    .filter((s) => !searchQuery || s.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .filter((s) => !debouncedSearch || s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || (s.code || "").toLowerCase().includes(debouncedSearch.toLowerCase()) || (s.brand || "").toLowerCase().includes(debouncedSearch.toLowerCase()))
                     .map((sku) => (
                       <tr key={sku.id} className="border-b hover:bg-muted/50">
                         <td className="py-4 px-4 font-medium">{sku.name}</td>
+                        <td className="py-4 px-4 text-sm text-muted-foreground">{sku.code || "-"}</td>
+                        <td className="py-4 px-4 text-sm text-muted-foreground">{sku.brand || "-"}</td>
                         <td className="py-4 px-4 text-sm">{getSkuPrice(sku.id)}</td>
                         <td className="py-4 px-4 text-sm text-muted-foreground">{sku.remark || "-"}</td>
                         <td className="py-4 px-4">
@@ -471,6 +488,38 @@ function FicusProductsPage() {
                     ))}
                 </tbody>
               </table>
+            </div>
+            <div className="md:hidden space-y-3">
+              {skus
+                .filter((s) => !debouncedSearch || s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || (s.code || "").toLowerCase().includes(debouncedSearch.toLowerCase()) || (s.brand || "").toLowerCase().includes(debouncedSearch.toLowerCase()))
+                .map((sku) => (
+                  <div key={sku.id} className="border rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-base">{sku.name}</span>
+                        {sku.archived ? (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">已归档</span>
+                        ) : (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">在售</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEditSku(sku)}>
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => requestDeleteSku(sku)} className="text-red-600">
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">{getSkuPrice(sku.id)}</div>
+                    {(sku.code || sku.brand) && (
+                      <div className="text-xs text-muted-foreground">
+                        {[sku.code, sku.brand].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                ))}
             </div>
           </CardContent>
         </Card>
@@ -576,6 +625,14 @@ function FicusProductsPage() {
             <Field>
               <Label>产品名称 *</Label>
               <Input value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="请输入产品名称" />
+            </Field>
+            <Field>
+              <Label>编码</Label>
+              <Input value={skuForm.code} onChange={(e) => setSkuForm({ ...skuForm, code: e.target.value })} placeholder="产品编码" />
+            </Field>
+            <Field>
+              <Label>品牌</Label>
+              <Input value={skuForm.brand} onChange={(e) => setSkuForm({ ...skuForm, brand: e.target.value })} placeholder="品牌名称" />
             </Field>
             <Field>
               <Label>排序</Label>

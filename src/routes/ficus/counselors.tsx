@@ -77,7 +77,8 @@ function FicusCounselorsPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select("id, name, email, status, created_at, updated_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(100);
       if (error) throw error;
       setCounselors(data || []);
     } catch (error) {

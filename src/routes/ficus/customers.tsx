@@ -40,6 +40,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/lib/supabase";
+import { Pagination } from "@/components/ui/pagination";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 interface Customer {
   id: number;
@@ -54,8 +56,11 @@ interface Customer {
 
 function FicusCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebouncedValue(searchQuery, 1000);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 20;
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -80,28 +85,33 @@ function FicusCustomersPage() {
   }, []);
 
   useEffect(() => {
-    let result = [...customers];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.phone.toLowerCase().includes(q) ||
-          (c.remark && c.remark.toLowerCase().includes(q))
-      );
-    }
-    setFilteredCustomers(result);
-  }, [searchQuery, customers]);
+    setPage(1);
+    fetchCustomers();
+  }, [debouncedSearch]);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, [page]);
 
   async function fetchCustomers() {
     try {
-      const { data, error } = await supabase
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      let query = supabase
         .from("customer")
-        .select("*")
-        .order("date_created", { ascending: false });
+        .select("*", { count: "exact" })
+        .order("date_created", { ascending: false })
+        .range(from, to);
+
+      if (debouncedSearch.trim()) {
+        const q = `%${debouncedSearch.trim()}%`;
+        query = query.or(`name.ilike.${q},phone.ilike.${q},remark.ilike.${q}`);
+      }
+
+      const { data, error, count } = await query;
       if (error) throw error;
       setCustomers(data || []);
-      setFilteredCustomers(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error("Fetch customers error:", error);
     } finally {
@@ -197,11 +207,12 @@ function FicusCustomersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">顾客管理</h1>
-          <p className="text-muted-foreground">管理顾客信息和客户资源</p>
+          <p className="text-muted-foreground hidden sm:block">管理顾客信息和客户资源</p>
         </div>
         <Button onClick={openCreateModal}>
           <Plus className="size-4 mr-2" />
-          新增顾客
+          <span className="hidden sm:inline">新增顾客</span>
+          <span className="sm:hidden">新增</span>
         </Button>
       </div>
 
@@ -210,7 +221,7 @@ function FicusCustomersPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle>顾客列表</CardTitle>
-              <CardDescription>共 {filteredCustomers.length} 位顾客</CardDescription>
+              <CardDescription>共 {totalCount} 位顾客</CardDescription>
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -218,13 +229,13 @@ function FicusCustomersPage() {
                 placeholder="搜索姓名、电话..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 pl-10"
+                className="w-full sm:w-64 pl-10"
               />
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
@@ -238,7 +249,7 @@ function FicusCustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredCustomers.map((customer) => (
+                {customers.map((customer) => (
                   <tr key={customer.id} className="border-b hover:bg-muted/50">
                     <td className="py-4 px-4 font-medium">{customer.name}</td>
                     <td className="py-4 px-4">
@@ -297,6 +308,40 @@ function FicusCustomersPage() {
               </tbody>
             </table>
           </div>
+          <div className="md:hidden space-y-3">
+            {customers.map((customer) => (
+              <div key={customer.id} className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-base">{customer.name}</span>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEditModal(customer)}>
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => requestDelete(customer)} className="text-red-600">
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Phone className="size-3" />
+                  {customer.phone}
+                </div>
+                {customer.wedding_date && (
+                  <div className="flex items-center gap-1 text-sm">
+                    <Heart className="size-3 text-pink-500" />
+                    {new Date(customer.wedding_date).toLocaleDateString("zh-CN")}
+                  </div>
+                )}
+                {customer.address && (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <MapPin className="size-3" />
+                    <span className="truncate">{customer.address}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <Pagination page={page} pageSize={pageSize} total={totalCount} onChange={setPage} />
         </CardContent>
       </Card>
 
